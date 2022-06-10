@@ -1,0 +1,7 @@
+## Interface: 70000
+## Title: Gulvklud's Bag Manager
+## SavedVariables: GBManagerConfig
+
+GulvkludBagManager.lua
+GulvkludBagManager.Items.lua
+GulvkludBagManager.Disenchant.lua
