@@ -13,7 +13,7 @@ GBManager:RegisterEvent("MERCHANT_SHOW");
 GBManager.Chat = DEFAULT_CHAT_FRAME;
 
 GBManager.Button = CreateFrame("Button", "GBManagerButton", GBManager, "SecureActionButtonTemplate")
-GBManager.Button.DefaultMacro = "/gmb process all"
+GBManager.Button.DefaultMacro = "/gbm process all"
 --GBManager.Button:RegisterForClicks("AnyDown","AnyUp")
 GBManager.Button:RegisterForClicks("AnyDown")
 GBManager.Button:SetAttribute("type","macro")
@@ -270,33 +270,6 @@ GBManager.CanPickLock = function(bag, slot)
     return false
 end
 
---[[
-GBManager.IsProspectable = function(bag, slot)
-	
-	if not GetContainerItemInfo(bag, slot) then
-		return false
-	end
-
-	GBManager.Tooltip:SetBagItem(bag, slot)
-	GBManager.Tooltip:Show()
-	
-	for i = 1, GBManager.Tooltip:NumLines(), 1 do
-
-		local line = GBManager.Tooltip.GetLine(i);
-		local text = line:GetText()
-
-		if string.find(text, "Prospectable") then
-
-			GBManager.Tooltip:Hide()
-			return true
-		end
-	end
-
-	GBManager.Tooltip:Hide()
-    return false
-end
-]]
-
 GBManager.CanProspect = function(bag, slot)
 	
 	local _, itemCount = GetContainerItemInfo(bag, slot);
@@ -329,46 +302,54 @@ GBManager.CanProspect = function(bag, slot)
     return false
 end
 
-GBManager.IsListedItem = function(itemLink)
+GBManager.IsItemMatch = function(itemLink)
 
-	local itemName, _, itemRarity, _, requiredLevel = GetItemInfo(itemLink)
-	local playerLevel = UnitLevel("PLAYER")
+	local itemName = GetItemInfo(itemLink)
+	
+	if itemName then
+		for _, item in ipairs(GBManager.items) do
 
-    for index, value in ipairs(GBManager.items) do
-        if value == itemName then
-            return true
-        end
-    end
+			if item == itemName then
+				return true
+			end
+		end
+	end
 
     return false
 end
 
-GBManager.CanBeDisenchanted = function(bag, slot)
+GBManager.IsDisenchantMatch = function(itemLink)
 
-	if not GBManager.abilities.disenchant then
-		return false
-	end
+	local _, _, itemQuality, itemLevel, _, itemType, itemSubType = GetItemInfo(itemLink)
+
+	if itemQuality and itemLevel and itemType then
+		--GBManager.Chat:AddMessage(itemLink .. "has Quality="..itemQuality..", itemLevel="..itemLevel..", itemType="..itemType..", itemSubType="..itemSubType)
+
+		for index, item in pairs(GBManager.disenchant) do 
+			if item.type == itemType and item.quality == itemQuality and item.level.min <= itemLevel and itemLevel <= item.level.max then
+				
+				if item.subTypes and not item.subTypes[itemSubType] then
+					--GBManager.Chat:AddMessage(itemLink .. " is not valid subtype.")
+					return false
+				end
+
+				if item.ignore then
+					--GBManager.Chat:AddMessage(itemLink .. " is ignored.")
+					return false
+				end
+
+				if item.vendor then
+					--GBManager.Chat:AddMessage(itemLink .. " should be vendored.")
+					return true, true
+				end
+
+				--GBManager.Chat:AddMessage(itemLink .. " should be disenchanted.")
+				return true
+			end
+		end
+	end;
 
 	return false
-
-	--[[
-	GBManager.Tooltip:SetBagItem(bag, slot)
-	GBManager.Tooltip:Show()
-	
-	for i = 1, GBManager.Tooltip:NumLines(), 1 do
-
-		local line = GBManager.Tooltip:GetLine(i);
-		local text = line:GetText()
-		if string.find(line, "Cannot be disenchanted") then
-
-			return false
-		end
-	end
-
-	GBManager.Tooltip:Hide()
-
-	return true
-	]]
 end
 
 ------------------------------------------------------------------------------------
@@ -385,8 +366,6 @@ GBManager.AssignButtonMacro = function()
 			GBManager.Button:SetAttribute("macrotext", GBManager.Button.DefaultMacro .. "\n/cast " .. GBManager.abilities.pickLock.name .. "\n/use " .. bag .. " " .. slot);
 			return
 		end
-
-		GBManager.Chat:AddMessage("Nothing to Lockpick...")
 	end
 
 	if GBManager.abilities.prospecting.known then
@@ -397,8 +376,16 @@ GBManager.AssignButtonMacro = function()
 			GBManager.Button:SetAttribute("macrotext", GBManager.Button.DefaultMacro .. "\n/cast " .. GBManager.abilities.prospecting.name .. "\n/use " .. bag .. " " .. slot);
 			return
 		end
+	end
 
-		GBManager.Chat:AddMessage("Nothing to Prospect...")
+	if GBManager.abilities.disenchant.known then
+
+		local bag, slot = GBManager.GetNextDisenchantableBagSlot()
+		if bag and slot then
+			
+			GBManager.Button:SetAttribute("macrotext", GBManager.Button.DefaultMacro .. "\n/cast " .. GBManager.abilities.disenchant.name .. "\n/use " .. bag .. " " .. slot);
+			return
+		end
 	end
 
 	GBManager.Button:SetAttribute("macrotext", GBManager.Button.DefaultMacro);
@@ -430,6 +417,24 @@ GBManager.GetNextProspectableBagSlot = function()
 	end
 end
 
+GBManager.GetNextDisenchantableBagSlot = function()
+	
+	for bag = 0, 4 do
+		for slot = 1, GetContainerNumSlots(bag) do
+
+			local _, _, _, _, _, _, itemLink = GetContainerItemInfo(bag,slot)
+			if itemLink then
+
+				local match, vendor = GBManager.IsDisenchantMatch(itemLink)
+				if match and not vendor then
+
+					return bag, slot
+				end
+			end
+		end
+	end
+end
+
 ------------------------------------------------------------------------------------
 --  ACTIONS
 ------------------------------------------------------------------------------------
@@ -441,21 +446,26 @@ GBManager.ProcessBags = function()
 			local _, itemCount, _, _, _, lootable, itemLink, _, noValue = GetContainerItemInfo(bag,slot)
 			
 			if itemLink then
-				local itemName, _, itemRarity, itemLevel, requiredLevel, itemType, itemSubType, itemStackCount, _, _, itemSellPrice = GetItemInfo(itemLink)
+				local itemName, _, itemQuality, itemLevel, requiredLevel, itemType, itemSubType, itemStackCount, _, _, itemSellPrice = GetItemInfo(itemLink)
 				local playerLevel = UnitLevel("PLAYER")
+				local _, vendor = GBManager.IsDisenchantMatch(itemLink)
 
-				if itemRarity == 0 then
+				if vendor then
+
+					GBManager.Sell(bag, slot)
+
+				elseif itemQuality == 0 then
 					
-					GBManager.DestroyOrSell(bag, slot)
+					GBManager.SellOrDestroy(bag, slot)
 				
 				elseif itemType == "Consumable" and itemSubType == "Food & Drink" and (playerLevel - requiredLevel) > 15 then
 
-					GBManager.DestroyOrSell(bag, slot)
+					GBManager.SellOrDestroy(bag, slot)
 
-				elseif GBManager.IsListedItem(itemLink) then
+				elseif GBManager.IsItemMatch(itemLink) then
 
-					GBManager.DestroyOrSell(bag, slot)
-
+					GBManager.SellOrDestroy(bag, slot)
+					
 				elseif lootable and not GBManager.IsLocked(bag, slot) then
 					
 					GBManager.OpenContainer(bag, slot)
@@ -465,24 +475,32 @@ GBManager.ProcessBags = function()
 	end
 end
 
-GBManager.DestroyOrSell = function(bag, slot)
+GBManager.SellOrDestroy = function(bag, slot)
 	
-	local _, _, _, _, _, lootable, itemLink, _, noValue = GetContainerItemInfo(bag, slot)
+	local _, _, _, _, _, _, itemLink, _, _ = GetContainerItemInfo(bag,slot)
 	local _, _, _, _, _, _, _, itemStackCount, _, _, itemSellPrice = GetItemInfo(itemLink)
 
-	if(GBManager.merchantOpen) then
-		if not lootable and not noValue then
-
-			GBManager.Chat:AddMessage("Vendoring: " .. itemLink)
-			UseContainerItem(bag, slot)
-		end
-
-	elseif itemStackCount * itemSellPrice < 5000 then
+	if not GBManager.Sell(bag, slot) and itemStackCount * itemSellPrice < 5000 then
 
 		GBManager.Chat:AddMessage("Destroying: " .. itemLink)
 		PickupContainerItem(bag, slot)
 		DeleteCursorItem()
 	end
+end
+
+GBManager.Sell = function(bag, slot)
+	
+	local _, _, _, _, _, lootable, itemLink, _, noValue = GetContainerItemInfo(bag, slot)
+
+	if GBManager.merchantOpen and not lootable and not noValue then
+
+		GBManager.Chat:AddMessage("Vendoring: " .. itemLink)
+		UseContainerItem(bag, slot)
+
+		return true
+	end
+
+	return false
 end
 
 GBManager.OpenContainer = function(bag, slot)
