@@ -14,14 +14,11 @@ GBManager.Chat = DEFAULT_CHAT_FRAME;
 
 GBManager.Button = CreateFrame("Button", "GBManagerButton", GBManager, "SecureActionButtonTemplate")
 GBManager.Button.DefaultMacro = "/gbm process all"
---GBManager.Button:RegisterForClicks("AnyDown","AnyUp")
 GBManager.Button:RegisterForClicks("AnyDown")
 GBManager.Button:SetAttribute("type","macro")
 GBManager.Button:SetAttribute("macrotext", GBManager.Button.DefaultMacro)
 
 GBManager.Button.KeyBind = function(key)
-
-	--GBManager.Chat:AddMessage("Button.KeyBind:" .. key)
 
 	if InCombatLockdown() then
 		
@@ -153,8 +150,6 @@ GBManager.OnLoad = function()
 		GBManager.Chat = _G["ChatFrame" ..  GBManager.config.chatFrame]
 	end
 
-	GBManager.Chat:AddMessage("|cFF8789B3GuvkludBagManager|r loaded.");
-
 	if GetSpellInfo(GBManager.abilities.pickLock.name) then
 		
 		GBManager.abilities.pickLock.known = true;
@@ -173,12 +168,8 @@ GBManager.OnLoad = function()
 		GBManager.Chat:AddMessage("|cFF8789B3GuvkludBagManager|r has detected " .. GetSpellLink(GBManager.abilities.prospecting.id) .. ".");
 	end
 	
-	if GBManager.abilities.pickLock.known or GBManager.abilities.disenchant.known or GBManager.abilities.prospecting.known then
-		
-		GBManager.Button.KeyBind(GBManager.config.key)
-		GBManager.Chat:AddMessage("|cFF8789B3GuvkludBagManager|r press [" .. GBManager.config.key .. "] to begin processing your bags.");
-	end
-
+	GBManager.Button.KeyBind(GBManager.config.key)
+	GBManager.Chat:AddMessage("|cFF8789B3GuvkludBagManager|r press [" .. GBManager.config.key .. "] to begin processing your bags.");
 	GBManager.AssignButtonMacro();
 end
 
@@ -195,12 +186,14 @@ end
 GBManager.OnMerchantWindowOpened = function()
 
 	GBManager.merchantOpen = true;
+	GBManager.Button:Disable()
 	GBManager.ProcessBags();
 end
 
 GBManager.OnMerchantWindowClosed = function()
 
 	GBManager.merchantOpen = false;
+	GBManager.Button:Enable()
 end
 
 GBManager.OnEvent = function(event, ...)
@@ -341,7 +334,7 @@ GBManager.IsDisenchantMatch = function(itemLink)
 	if itemQuality and GBManager.disenchant[itemQuality] and itemLevel and itemType then
 		--GBManager.Chat:AddMessage(itemLink .. "has Quality="..itemQuality..", itemLevel="..itemLevel..", itemType="..itemType..", itemSubType="..itemSubType)
 
-		for index, item in pairs(BManager.disenchant[itemQuality]) do 
+		for index, item in pairs(GBManager.disenchant[itemQuality]) do 
 			if item.type == itemType and item.quality == itemQuality and item.level.min <= itemLevel and itemLevel <= item.level.max then
 				
 				if item.subTypes and not item.subTypes[itemSubType] then
@@ -402,6 +395,24 @@ GBManager.AssignButtonMacro = function()
 			GBManager.Button:SetAttribute("macrotext", GBManager.Button.DefaultMacro .. "\n/cast " .. GBManager.abilities.disenchant.name .. "\n/use " .. bag .. " " .. slot);
 			return
 		end
+	end
+
+	if GBManager.abilities.pickLock.known then
+
+		GBManager.Button:SetAttribute("macrotext", GBManager.Button.DefaultMacro .. "\n/cast " .. GBManager.abilities.pickLock.name);
+		return
+	end
+
+	if GBManager.abilities.prospecting.known then
+
+		GBManager.Button:SetAttribute("macrotext", GBManager.Button.DefaultMacro .. "\n/cast " .. GBManager.abilities.prospecting.name);
+		return
+	end
+
+	if GBManager.abilities.disenchant.known then
+
+		GBManager.Button:SetAttribute("macrotext", GBManager.Button.DefaultMacro .. "\n/cast " .. GBManager.abilities.disenchant.name);
+		return
 	end
 
 	GBManager.Button:SetAttribute("macrotext", GBManager.Button.DefaultMacro);
@@ -513,7 +524,7 @@ GBManager.Sell = function(bag, slot)
 
 	if GBManager.merchantOpen and not lootable and not noValue then
 
-		GBManager.Chat:AddMessage("Vendoring: " .. itemLink)
+		GBManager.Chat:AddMessage("|cFF8789B3GBM|r vendoring: " .. itemLink)
 		UseContainerItem(bag, slot)
 
 		return true
