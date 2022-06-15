@@ -53,9 +53,12 @@ end
 -- CONFIGURATION
 ------------------------------------------------------------------------------------
 
-GBManager.config = {
+GBManager.config = {};
+
+GBManager.defaults = {
+	key = "CTRL-V",
 	chatFrame = 1,
-	key = "CTRL-V"
+	minimumValue = 5000
 };
 
 ------------------------------------------------------------------------------------
@@ -130,6 +133,19 @@ GBManager.OnLoad = function()
 	if GBManagerConfig then
 		
 		GBManager.config = GBManagerConfig;
+
+		-- todo: learn how to recursively iterate
+		if not GBManager.config.key then
+			GBManager.config.key = GBManager.defaults.key
+		end
+
+		if not GBManager.config.chatFrame then
+			GBManager.config.chatFrame = GBManager.defaults.chatFrame
+		end
+
+		if not GBManager.config.minimumValue then
+			GBManager.config.minimumValue = GBManager.defaults.minimumValue
+		end
 	end
 
 	if GBManager.config.chatFrame then
