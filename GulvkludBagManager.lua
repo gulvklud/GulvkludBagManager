@@ -338,10 +338,10 @@ GBManager.IsDisenchantMatch = function(itemLink)
 
 	local _, _, itemQuality, itemLevel, _, itemType, itemSubType = GetItemInfo(itemLink)
 
-	if itemQuality and itemLevel and itemType then
+	if itemQuality and GBManager.disenchant[itemQuality] and itemLevel and itemType then
 		--GBManager.Chat:AddMessage(itemLink .. "has Quality="..itemQuality..", itemLevel="..itemLevel..", itemType="..itemType..", itemSubType="..itemSubType)
 
-		for index, item in pairs(GBManager.disenchant) do 
+		for index, item in pairs(BManager.disenchant[itemQuality]) do 
 			if item.type == itemType and item.quality == itemQuality and item.level.min <= itemLevel and itemLevel <= item.level.max then
 				
 				if item.subTypes and not item.subTypes[itemSubType] then
@@ -478,7 +478,7 @@ GBManager.ProcessBags = function()
 
 					GBManager.SellOrDestroy(bag, slot)
 
-				elseif GBManager.IsItemMatch(itemLink) then
+				elseif GBManager.items[itemName] then
 
 					GBManager.SellOrDestroy(bag, slot)
 					
@@ -494,13 +494,16 @@ end
 GBManager.SellOrDestroy = function(bag, slot)
 	
 	local _, _, _, _, _, _, itemLink, _, _ = GetContainerItemInfo(bag,slot)
-	local _, _, _, _, _, _, _, itemStackCount, _, _, itemSellPrice = GetItemInfo(itemLink)
+	local itemName, _, _, _, _, _, _, itemStackCount, _, _, itemSellPrice = GetItemInfo(itemLink)
+	local stackValue = itemStackCount * itemSellPrice
 
-	if not GBManager.Sell(bag, slot) and itemStackCount * itemSellPrice < 5000 then
+	if not GBManager.Sell(bag, slot) then
+		if GBManager.items[itemName] or itemStackCount * itemSellPrice < GBManager.config.minimumValue then
 
-		GBManager.Chat:AddMessage("Destroying: " .. itemLink)
-		PickupContainerItem(bag, slot)
-		DeleteCursorItem()
+			GBManager.Chat:AddMessage("|cFF8789B3GBM|r destroying: " .. itemLink)
+			PickupContainerItem(bag, slot)
+			DeleteCursorItem()
+		end
 	end
 end
 
