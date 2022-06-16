@@ -335,7 +335,7 @@ GBManager.IsDisenchantMatch = function(itemLink)
 		--GBManager.Chat:AddMessage(itemLink .. "has Quality="..itemQuality..", itemLevel="..itemLevel..", itemType="..itemType..", itemSubType="..itemSubType)
 
 		for index, item in pairs(GBManager.disenchant[itemQuality]) do 
-			if item.type == itemType and item.quality == itemQuality and item.level.min <= itemLevel and itemLevel <= item.level.max then
+			if item.type == itemType and item.level.min <= itemLevel and itemLevel <= item.level.max then
 				
 				if item.subTypes and not item.subTypes[itemSubType] then
 					--GBManager.Chat:AddMessage(itemLink .. " is not valid subtype.")
